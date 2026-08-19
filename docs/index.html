@@ -30,6 +30,25 @@
 
       <section class="kpi-grid" id="kpiGrid"></section>
 
+      <section class="insights-grid">
+        <section class="panel spotlight-panel" id="spotlightPanel">
+          <div class="empty-state">
+            <div>
+              <h2>Stack Snapshot</h2>
+              <p>Sélectionne une startup pour voir sa stack en un coup d'oeil.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel leaderboard-panel">
+          <div class="panel-header">
+            <h2>Stacks les plus citées</h2>
+            <span id="leaderboardMeta" class="muted"></span>
+          </div>
+          <div id="leaderboardGrid" class="leaderboard-grid"></div>
+        </section>
+      </section>
+
       <section class="panel filters-panel">
         <div class="filters-header">
           <h2>Filtres</h2>
@@ -97,9 +116,8 @@
                 <tr>
                   <th>Rank</th>
                   <th>Startup</th>
-                  <th>Secteur</th>
-                  <th>Marketing</th>
-                  <th>IA</th>
+                  <th>Stack snapshot</th>
+                  <th>Confiance</th>
                   <th>Score</th>
                   <th>Status</th>
                 </tr>
@@ -111,8 +129,10 @@
 
         <aside class="panel detail-panel" id="detailPanel">
           <div class="empty-state">
-            <h2>Détail</h2>
-            <p>Sélectionne une startup pour voir les preuves et la stack.</p>
+            <div>
+              <h2>Détail</h2>
+              <p>Sélectionne une startup pour voir les preuves, la stack et les liens source.</p>
+            </div>
           </div>
         </aside>
       </section>

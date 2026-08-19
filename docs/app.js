@@ -1,5 +1,29 @@
 const DATA_URL = "./top50_french_startups_stack.csv";
 
+const GTM_TOOL_RULES = [
+  { match: /hubspot/i, label: "HubSpot", category: "crm" },
+  { match: /salesforce/i, label: "Salesforce", category: "crm" },
+  { match: /pardot/i, label: "Pardot", category: "emailing" },
+  { match: /customer\.?io/i, label: "Customer.io", category: "emailing" },
+  { match: /braze/i, label: "Braze", category: "emailing" },
+  { match: /klaviyo/i, label: "Klaviyo", category: "emailing" },
+  { match: /mailchimp/i, label: "Mailchimp", category: "emailing" },
+  { match: /intercom/i, label: "Intercom", category: "support" },
+  { match: /zendesk/i, label: "Zendesk", category: "support" },
+  { match: /segment/i, label: "Segment", category: "analytics" },
+  { match: /amplitude/i, label: "Amplitude", category: "analytics" },
+  { match: /mixpanel/i, label: "Mixpanel", category: "analytics" },
+  { match: /google tag manager|gtm/i, label: "Google Tag Manager", category: "analytics" },
+];
+
+const GTM_CATEGORY_LABELS = {
+  crm: "CRM",
+  emailing: "Emailing",
+  support: "Support",
+  analytics: "Analytics",
+  other: "Autres outils GTM",
+};
+
 const state = {
   rows: [],
   filtered: [],
@@ -19,6 +43,7 @@ const els = {
   spotlightPanel: document.querySelector("#spotlightPanel"),
   leaderboardGrid: document.querySelector("#leaderboardGrid"),
   leaderboardMeta: document.querySelector("#leaderboardMeta"),
+  mobileList: document.querySelector("#mobileList"),
   searchInput: document.querySelector("#searchInput"),
   sectorFilter: document.querySelector("#sectorFilter"),
   marketingFilter: document.querySelector("#marketingFilter"),
@@ -106,6 +131,7 @@ function applyFilters() {
       row.ai_stack_evidence_notes,
       row.other_tech_signals,
       row.stackHighlights.join(" "),
+      row.gtmHighlights.join(" "),
     ]
       .join(" ")
       .toLowerCase();
@@ -149,6 +175,7 @@ function render() {
   renderSpotlight();
   renderLeaderboard();
   renderTable();
+  renderMobileList();
   renderDetail();
   els.resultsCount.textContent = `${state.filtered.length} resultat${state.filtered.length > 1 ? "s" : ""}`;
   els.leaderboardMeta.textContent = `${state.filtered.length} startup${state.filtered.length > 1 ? "s" : ""} filtre${state.filtered.length > 1 ? "es" : ""}`;
@@ -159,19 +186,18 @@ function renderKpis() {
   const avgScore = rows.length ? Math.round(rows.reduce((sum, row) => sum + row.top50_score_num, 0) / rows.length) : 0;
   const strongMarketing = rows.filter((row) => row.marketing_stack_confidence === "fort").length;
   const strongAi = rows.filter((row) => row.ai_stack_confidence === "fort").length;
-  const partials = rows.filter((row) => row.status === "partial").length;
-  const distinctSignals = new Set(rows.flatMap((row) => row.stackHighlights)).size;
-
-  const marketingDist = countBy(rows, "marketing_stack_confidence");
-  const aiDist = countBy(rows, "ai_stack_confidence");
+  const crmCoverage = rows.filter((row) => row.gtm.crm.length).length;
+  const emailingCoverage = rows.filter((row) => row.gtm.emailing.length).length;
+  const analyticsCoverage = rows.filter((row) => row.gtm.analytics.length).length;
 
   const cards = [
     { label: "Startups visibles", value: rows.length, note: "apres filtres" },
     { label: "Score moyen", value: avgScore || "—", note: "top50_score" },
-    { label: "Marketing fort", value: strongMarketing, note: `${percent(strongMarketing, rows.length)} du lot` },
+    { label: "CRM detecte", value: crmCoverage, note: `${percent(crmCoverage, rows.length)} du lot` },
+    { label: "Emailing detecte", value: emailingCoverage, note: `${percent(emailingCoverage, rows.length)} du lot` },
+    { label: "Analytics detecte", value: analyticsCoverage, note: `${percent(analyticsCoverage, rows.length)} du lot` },
     { label: "IA forte", value: strongAi, note: `${percent(strongAi, rows.length)} du lot` },
-    { label: "Signaux stack", value: distinctSignals || "—", note: "technos ou patterns distincts" },
-    { label: "Lignes partial", value: partials, note: `${percent(partials, rows.length)} du lot` },
+    { label: "Marketing fort", value: strongMarketing, note: `${percent(strongMarketing, rows.length)} du lot` },
   ];
 
   els.kpiGrid.innerHTML = cards
@@ -184,38 +210,11 @@ function renderKpis() {
       </div>
     `
     )
-    .join("") +
-    `
-    <div class="kpi-card">
-      <span class="kpi-label">Repartition marketing</span>
-      ${renderMiniBars(marketingDist, rows.length)}
-    </div>
-    <div class="kpi-card">
-      <span class="kpi-label">Repartition IA</span>
-      ${renderMiniBars(aiDist, rows.length)}
-    </div>
-  `;
-}
-
-function renderMiniBars(distribution, total) {
-  const order = ["fort", "moyen", "faible"];
-  return `<div class="mini-bars">${order
-    .map((key) => {
-      const value = distribution[key] || 0;
-      const width = total ? Math.round((value / total) * 100) : 0;
-      return `
-        <div class="mini-bar-row">
-          <span>${escapeHtml(key)}</span>
-          <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${width}%"></div></div>
-          <strong>${value}</strong>
-        </div>
-      `;
-    })
-    .join("")}</div>`;
+    .join("");
 }
 
 function renderSpotlight() {
-  const row = state.filtered.find((item) => item.id === state.selectedId);
+  const row = getSelectedRow();
   if (!row) {
     els.spotlightPanel.innerHTML = `
       <div class="empty-state">
@@ -246,19 +245,23 @@ function renderSpotlight() {
     <div class="spotlight-topline">
       <span>${escapeHtml(row.sector || "Secteur non renseigne")}</span>
       <span>Score ${escapeHtml(String(row.top50_score_num || "—"))}</span>
-      <span>Verifie le ${escapeHtml(row.last_checked_at || "—")}</span>
+      <span>Preuve GTM: ${escapeHtml(row.gtmEvidenceType)}</span>
     </div>
 
     <div class="spotlight-grid">
+      <div class="spotlight-card spotlight-card-wide">
+        <span class="pill-label">CRM, emailing et outils GTM</span>
+        ${renderGtmBoard(row, true)}
+      </div>
       <div class="spotlight-card">
         <span class="pill-label">Stack marketing</span>
-        ${renderStackChips(row.marketingHighlights, 5, "Signal marketing non renseigne")}
-        <p>${escapeHtml(shortText(row.marketing_stack_evidence_notes, 150))}</p>
+        ${renderStackChips(row.marketingHighlights, 6, "Signal marketing non renseigne")}
+        <p>${escapeHtml(shortText(row.marketing_stack_evidence_notes, 160))}</p>
       </div>
       <div class="spotlight-card">
         <span class="pill-label">Stack IA</span>
-        ${renderStackChips(row.aiHighlights, 5, "Signal IA non renseigne")}
-        <p>${escapeHtml(shortText(row.ai_stack_evidence_notes, 150))}</p>
+        ${renderStackChips(row.aiHighlights, 6, "Signal IA non renseigne")}
+        <p>${escapeHtml(shortText(row.ai_stack_evidence_notes, 160))}</p>
       </div>
       <div class="spotlight-card spotlight-card-wide">
         <span class="pill-label">Snapshot combine</span>
@@ -274,21 +277,11 @@ function renderSpotlight() {
 function renderLeaderboard() {
   const rows = state.filtered;
   const sections = [
-    {
-      title: "Marketing",
-      note: "signaux marketing les plus cites",
-      items: buildLeaderboard(rows, (row) => row.marketingHighlights),
-    },
-    {
-      title: "IA",
-      note: "signaux IA les plus cites",
-      items: buildLeaderboard(rows, (row) => row.aiHighlights),
-    },
-    {
-      title: "Global",
-      note: "mix marketing + IA + autres signaux",
-      items: buildLeaderboard(rows, (row) => row.stackHighlights),
-    },
+    { title: "CRM", note: "outils CRM cites", items: buildLeaderboard(rows, (row) => row.gtm.crm) },
+    { title: "Emailing", note: "automation ou lifecycle", items: buildLeaderboard(rows, (row) => row.gtm.emailing) },
+    { title: "Support", note: "chat, support ou onboarding", items: buildLeaderboard(rows, (row) => row.gtm.support) },
+    { title: "Analytics", note: "tracking et mesure", items: buildLeaderboard(rows, (row) => row.gtm.analytics) },
+    { title: "IA", note: "produits IA les plus cites", items: buildLeaderboard(rows, (row) => row.aiHighlights) },
   ];
 
   els.leaderboardGrid.innerHTML = sections
@@ -313,7 +306,7 @@ function renderLeaderboard() {
                   )
                   .join("")}
               </div>`
-            : `<p class="muted">Pas assez de signaux pour cette vue.</p>`
+            : `<p class="muted">Aucun signal fort publie dans cette categorie.</p>`
         }
       </section>
     `
@@ -345,12 +338,12 @@ function renderTable() {
           </td>
           <td>
             <div class="stack-cell">
-              ${renderStackChips(row.stackHighlights, 3, "Peu de signaux")}
+              ${renderCompactCategoryBadges(row)}
             </div>
           </td>
           <td>
             <div class="confidence-stack">
-              <span class="confidence-line">M ${pill(row.marketing_stack_confidence)}</span>
+              <span class="confidence-line">GTM ${pill(row.marketing_stack_confidence)}</span>
               <span class="confidence-line">IA ${pill(row.ai_stack_confidence)}</span>
             </div>
           </td>
@@ -361,18 +354,53 @@ function renderTable() {
     })
     .join("");
 
-  [...els.tableBody.querySelectorAll("tr[data-row-id]")].forEach((rowEl) => {
+  bindRowClicks();
+}
+
+function renderMobileList() {
+  els.mobileList.innerHTML = state.filtered
+    .map((row) => {
+      const selected = row.id === state.selectedId ? "is-selected" : "";
+      return `
+        <button class="mobile-card ${selected}" type="button" data-row-id="${row.id}">
+          <div class="mobile-card-top">
+            <div>
+              <div class="eyebrow">#${row.rank_num || "—"} · score ${row.top50_score_num || "—"}</div>
+              <h3>${escapeHtml(row.company_name)}</h3>
+              <p class="muted">${escapeHtml(row.sector || "—")}</p>
+            </div>
+            ${statusPill(row.status)}
+          </div>
+          <div class="mobile-card-section">
+            <span class="pill-label">CRM / Emailing / Analytics</span>
+            ${renderCompactCategoryBadges(row)}
+          </div>
+          <div class="mobile-card-section">
+            <span class="pill-label">IA</span>
+            ${renderStackChips(row.aiHighlights, 4, "Non renseigne")}
+          </div>
+        </button>
+      `;
+    })
+    .join("");
+
+  bindRowClicks();
+}
+
+function bindRowClicks() {
+  [...document.querySelectorAll("[data-row-id]")].forEach((rowEl) => {
     rowEl.addEventListener("click", () => {
       state.selectedId = rowEl.dataset.rowId;
       renderSpotlight();
       renderTable();
+      renderMobileList();
       renderDetail();
     });
   });
 }
 
 function renderDetail() {
-  const row = state.filtered.find((item) => item.id === state.selectedId);
+  const row = getSelectedRow();
   if (!row) {
     els.detailPanel.innerHTML = `
       <div class="empty-state">
@@ -412,47 +440,31 @@ function renderDetail() {
         <strong>${escapeHtml(row.last_checked_at || "—")}</strong>
       </div>
       <div class="detail-block">
-        <span class="pill-label">Confiance marketing</span>
-        ${pill(row.marketing_stack_confidence)}
+        <span class="pill-label">Preuve GTM</span>
+        <strong>${escapeHtml(row.gtmEvidenceType)}</strong>
       </div>
       <div class="detail-block">
-        <span class="pill-label">Confiance IA</span>
-        ${pill(row.ai_stack_confidence)}
+        <span class="pill-label">Confiance GTM</span>
+        ${pill(row.marketing_stack_confidence)}
       </div>
     </div>
 
     <div class="detail-section detail-block">
-      <span class="pill-label">Stacks detectees</span>
-      <div class="detail-stack-columns">
-        <div>
-          <strong>Marketing</strong>
-          ${renderStackChips(row.marketingHighlights, 8, "Non renseigne")}
-        </div>
-        <div>
-          <strong>IA</strong>
-          ${renderStackChips(row.aiHighlights, 8, "Non renseigne")}
-        </div>
-      </div>
-    </div>
-
-    <div class="detail-section detail-block">
-      <span class="pill-label">Sources de ranking</span>
-      <p>${escapeHtml(row.list_sources || "—")}</p>
-      <p>${escapeHtml(row.source_rank_notes || "")}</p>
-    </div>
-
-    <div class="detail-section detail-block">
-      <span class="pill-label">Stack marketing detectee</span>
-      <p><strong>${escapeHtml(row.marketing_stack_detected || "Non renseigne")}</strong></p>
+      <span class="pill-label">Carte des outils GTM</span>
+      ${renderGtmBoard(row)}
       <p>${escapeHtml(row.marketing_stack_evidence_notes || "")}</p>
-      ${renderLinks(row.marketing_stack_evidence_links)}
     </div>
 
     <div class="detail-section detail-block">
       <span class="pill-label">Stack IA detectee</span>
-      <p><strong>${escapeHtml(row.ai_stack_detected || "Non renseigne")}</strong></p>
+      ${renderStackChips(row.aiHighlights, 8, "Non renseigne")}
       <p>${escapeHtml(row.ai_stack_evidence_notes || "")}</p>
       ${renderLinks(row.ai_stack_evidence_links)}
+    </div>
+
+    <div class="detail-section detail-block">
+      <span class="pill-label">Regle de collecte</span>
+      <p>Priorite aux scripts publics du site, puis aux integrations/docs officielles, puis aux signaux adjacents. Si un outil CRM ou emailing n'est pas visible publiquement, il reste vide.</p>
     </div>
 
     <div class="detail-section detail-block">
@@ -460,6 +472,54 @@ function renderDetail() {
       <p>${escapeHtml(row.other_tech_signals || "—")}</p>
       <p>${escapeHtml(row.proof_notes || "")}</p>
       ${renderLinks(row.proof_links)}
+    </div>
+  `;
+}
+
+function renderGtmBoard(row, compact = false) {
+  const entries = [
+    ["crm", row.gtm.crm],
+    ["emailing", row.gtm.emailing],
+    ["support", row.gtm.support],
+    ["analytics", row.gtm.analytics],
+    ["other", row.gtm.other],
+  ];
+
+  return `
+    <div class="gtm-grid ${compact ? "is-compact" : ""}">
+      ${entries
+        .map(
+          ([key, items]) => `
+          <div class="gtm-card">
+            <span class="pill-label">${escapeHtml(GTM_CATEGORY_LABELS[key])}</span>
+            ${renderStackChips(items, compact ? 3 : 5, "Non detecte publiquement")}
+          </div>
+        `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderCompactCategoryBadges(row) {
+  const ordered = [
+    ["CRM", row.gtm.crm[0]],
+    ["Emailing", row.gtm.emailing[0]],
+    ["Support", row.gtm.support[0]],
+    ["Analytics", row.gtm.analytics[0]],
+  ]
+    .filter(([, value]) => Boolean(value))
+    .slice(0, 4);
+
+  if (!ordered.length) {
+    return renderStackChips(row.gtm.other, 2, "Non detecte publiquement");
+  }
+
+  return `
+    <div class="chip-row">
+      ${ordered
+        .map(([label, value]) => `<span class="stack-chip category-chip"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value)}</span>`)
+        .join("")}
     </div>
   `;
 }
@@ -474,7 +534,7 @@ function buildLeaderboard(rows, getter) {
 
   return [...counts.entries()]
     .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, 8)
+    .slice(0, 6)
     .map(([label, count]) => ({ label, count }));
 }
 
@@ -488,7 +548,7 @@ function renderLinks(value) {
 
 function renderConfidenceSummary(row) {
   return `
-    <span class="inline-pair"><span class="muted">Marketing</span> ${pill(row.marketing_stack_confidence)}</span>
+    <span class="inline-pair"><span class="muted">GTM</span> ${pill(row.marketing_stack_confidence)}</span>
     <span class="inline-pair"><span class="muted">IA</span> ${pill(row.ai_stack_confidence)}</span>
   `;
 }
@@ -520,14 +580,6 @@ function statusPill(value) {
   return `<span class="status-pill ${cls}">${escapeHtml(safe)}</span>`;
 }
 
-function countBy(rows, key) {
-  return rows.reduce((acc, row) => {
-    const value = row[key] || "n/a";
-    acc[value] = (acc[value] || 0) + 1;
-    return acc;
-  }, {});
-}
-
 function percent(value, total) {
   return total ? `${Math.round((value / total) * 100)}%` : "0%";
 }
@@ -537,6 +589,8 @@ function normalizeRow(row) {
   const aiHighlights = extractStackItems(row.ai_stack_detected);
   const otherHighlights = extractStackItems(row.other_tech_signals);
   const stackHighlights = uniqueList([...marketingHighlights, ...aiHighlights, ...otherHighlights]);
+  const gtm = categorizeGtmTools(marketingHighlights);
+  const gtmHighlights = uniqueList([...gtm.crm, ...gtm.emailing, ...gtm.support, ...gtm.analytics, ...gtm.other]);
 
   return {
     ...row,
@@ -547,7 +601,48 @@ function normalizeRow(row) {
     aiHighlights,
     otherHighlights,
     stackHighlights,
+    gtm,
+    gtmHighlights,
+    gtmEvidenceType: inferGtmEvidenceType(row.marketing_stack_evidence_notes, row.marketing_stack_evidence_links),
   };
+}
+
+function categorizeGtmTools(marketingHighlights) {
+  const result = {
+    crm: [],
+    emailing: [],
+    support: [],
+    analytics: [],
+    other: [],
+  };
+
+  marketingHighlights.forEach((item) => {
+    const rule = GTM_TOOL_RULES.find(({ match }) => match.test(item));
+    if (rule) {
+      result[rule.category].push(rule.label);
+    } else {
+      result.other.push(item);
+    }
+  });
+
+  return {
+    crm: uniqueList(result.crm),
+    emailing: uniqueList(result.emailing),
+    support: uniqueList(result.support),
+    analytics: uniqueList(result.analytics),
+    other: uniqueList(result.other),
+  };
+}
+
+function inferGtmEvidenceType(notes, links) {
+  const haystack = `${notes || ""} ${links || ""}`.toLowerCase();
+  if (/homepage html|public homepage html|loads|exposes|references|script/i.test(haystack)) {
+    return "Script public";
+  }
+  if (/help|docs|integration|official/i.test(haystack)) {
+    return "Documentation officielle";
+  }
+  return "Source officielle";
 }
 
 function extractStackItems(value) {
@@ -630,6 +725,10 @@ function parseCsv(text) {
     });
     return obj;
   });
+}
+
+function getSelectedRow() {
+  return state.filtered.find((item) => item.id === state.selectedId);
 }
 
 function escapeHtml(value) {

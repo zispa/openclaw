@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Top 50 French Startups — Research Dashboard</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Mini app recherche</p>
+          <h1>Top 50 French Startups Dashboard</h1>
+          <p class="subtitle">
+            Vue rapide des startups, de la qualité des preuves marketing / IA, et des signaux de complétude.
+          </p>
+        </div>
+        <div class="hero-meta">
+          <div class="meta-card">
+            <span class="meta-label">Source</span>
+            <strong>top50_french_startups_stack.csv</strong>
+          </div>
+          <div class="meta-card">
+            <span class="meta-label">Mode</span>
+            <strong>front statique</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="kpi-grid" id="kpiGrid"></section>
+
+      <section class="panel filters-panel">
+        <div class="filters-header">
+          <h2>Filtres</h2>
+          <button id="resetFilters" class="ghost-button">Réinitialiser</button>
+        </div>
+        <div class="filters-grid">
+          <label>
+            <span>Recherche</span>
+            <input id="searchInput" type="search" placeholder="Startup, secteur, stack, preuve..." />
+          </label>
+          <label>
+            <span>Secteur</span>
+            <select id="sectorFilter">
+              <option value="">Tous</option>
+            </select>
+          </label>
+          <label>
+            <span>Confiance marketing</span>
+            <select id="marketingFilter">
+              <option value="">Toutes</option>
+              <option value="fort">fort</option>
+              <option value="moyen">moyen</option>
+              <option value="faible">faible</option>
+            </select>
+          </label>
+          <label>
+            <span>Confiance IA</span>
+            <select id="aiFilter">
+              <option value="">Toutes</option>
+              <option value="fort">fort</option>
+              <option value="moyen">moyen</option>
+              <option value="faible">faible</option>
+            </select>
+          </label>
+          <label>
+            <span>Status</span>
+            <select id="statusFilter">
+              <option value="">Tous</option>
+              <option value="partial">partial</option>
+              <option value="incomplete">incomplete</option>
+              <option value="complete">complete</option>
+            </select>
+          </label>
+          <label>
+            <span>Trier par</span>
+            <select id="sortFilter">
+              <option value="rank-asc">Rank croissant</option>
+              <option value="score-desc">Score décroissant</option>
+              <option value="updated-desc">Dernière vérif récente</option>
+              <option value="company-asc">Nom A → Z</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel table-panel">
+          <div class="panel-header">
+            <h2>Startups</h2>
+            <span id="resultsCount" class="muted"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Startup</th>
+                  <th>Secteur</th>
+                  <th>Marketing</th>
+                  <th>IA</th>
+                  <th>Score</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <aside class="panel detail-panel" id="detailPanel">
+          <div class="empty-state">
+            <h2>Détail</h2>
+            <p>Sélectionne une startup pour voir les preuves et la stack.</p>
+          </div>
+        </aside>
+      </section>
+    </div>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>

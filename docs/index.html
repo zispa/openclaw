@@ -42,7 +42,7 @@
 
         <section class="panel leaderboard-panel">
           <div class="panel-header">
-            <h2>Stacks les plus citées</h2>
+            <h2>Outils les plus cites</h2>
             <span id="leaderboardMeta" class="muted"></span>
           </div>
           <div id="leaderboardGrid" class="leaderboard-grid"></div>
@@ -104,6 +104,31 @@
         </div>
       </section>
 
+      <section class="panel methodology-panel">
+        <div class="panel-header">
+          <h2>Methode CRM & emailing</h2>
+          <span class="muted">Comment les outils sont detectes</span>
+        </div>
+        <div class="method-grid">
+          <article class="method-card">
+            <span class="pill-label">1. Script public</span>
+            <p>On inspecte le HTML public pour capter les tags charges en direct: CRM, analytics, chat, lifecycle.</p>
+          </article>
+          <article class="method-card">
+            <span class="pill-label">2. Source officielle</span>
+            <p>On croise avec les pages d'integrations, docs, help center et pages produit de la startup.</p>
+          </article>
+          <article class="method-card">
+            <span class="pill-label">3. Categorisation</span>
+            <p>Chaque outil est range en `CRM`, `Emailing`, `Support`, `Analytics` ou `Autres outils GTM`.</p>
+          </article>
+          <article class="method-card">
+            <span class="pill-label">4. Prudence</span>
+            <p>Si un outil n'est pas visible publiquement, il reste `non detecte publiquement` plutot qu'invente.</p>
+          </article>
+        </div>
+      </section>
+
       <section class="content-grid">
         <div class="panel table-panel">
           <div class="panel-header">
@@ -125,6 +150,7 @@
               <tbody id="tableBody"></tbody>
             </table>
           </div>
+          <div id="mobileList" class="mobile-list"></div>
         </div>
 
         <aside class="panel detail-panel" id="detailPanel">
